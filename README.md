@@ -1,11 +1,11 @@
 # ErmeMASHED
 
-Top-down combat racer voor 4 auto's, gebaseerd op het Mashed-gamedesigndocument. Alles draait in Docker:
+Top-down combat racer gebaseerd op het Mashed-gamedesigndocument. Speel samen in een lobby met tot 6 spelers; zijn jullie met minder dan 4, dan vullen bots aan tot 4 auto's. Alles draait in Docker:
 
 | Container     | Wat het doet                                                               |
 | ------------- | -------------------------------------------------------------------------- |
 | `frontend`    | nginx: serveert de game en stuurt `/api` en `/ws` door naar de backend      |
-| `backend`     | Node.js: online rijden via WebSocket (tot 20 spelers per baan) en scorebord |
+| `backend`     | Node.js: lobby's via WebSocket (max 6 spelers per potje) en scorebord       |
 | `tunnel`      | Cloudflare-tunnel naar **https://ermemashed.terpstack.dev** (standaard)      |
 | `quicktunnel` | Alternatief: tijdelijke link op trycloudflare.com, zonder token             |
 
@@ -37,7 +37,16 @@ docker compose up -d --build
 - Lokaal: http://localhost:8080
 - Controleren of de tunnel verbonden is: `docker compose ps` (de `tunnel` moet *healthy* zijn) of `docker compose logs tunnel`.
 
-Bij het openen van de game vul je eerst je naam in. Die naam staat boven je auto, in de online stand en op het scorebord.
+## Zo werkt het spel
+
+1. **Startscherm:** vul je nickname in.
+2. **Lobby's:** kies een open lobby en klik op *Meedoen*, of maak er zelf een aan. Zonder verbinding met de server kun je offline tegen bots spelen.
+3. **Lobby:** maximaal 6 spelers. De maker is host en kiest de modus (Battle of Race), de baan, het niveau van de bots en de puntendrempel. Zijn jullie met minder dan 4, dan rijden er bots mee tot er 4 auto's starten.
+4. **Spelen:** de host start het potje. Na afloop kan de host nog een potje starten of iedereen terugsturen naar de lobby.
+
+De browser van de host rekent het spel uit (ook de bots) en stuurt ~20 keer per seconde de stand naar de anderen. Je eigen auto reageert direct; bij botsingen en treffers volgt hij de host. Gaat de host weg, dan wordt de volgende speler host en gaat iedereen terug naar de lobby. Houd als host het tabblad open: een browser zet de game op de achtergrond bijna stil.
+
+In Battle delen alle spelers één camera, net als op één scherm: wie uit beeld raakt, ligt eruit.
 
 ### Zonder token even testen
 
@@ -80,6 +89,6 @@ backend/
 | GET     | `/api/leaderboard?track=polar`  | Top 10 snelste rondes (`polar`, `angel`, `ventura`)        |
 | POST    | `/api/laps`                     | Rondetijd opslaan: `{ "name", "track", "time" }`           |
 | GET     | `/api/share`                    | Publieke link van de tunnel                                |
-| WS      | `/ws`                           | Online rijden: `join` een baan, daarna status-updates      |
+| WS      | `/ws`                           | Lobby's: `hello`, `create`, `join`, `start`, input en snapshots |
 
 Het scorebord staat in het Docker-volume `scores` (bestand `/data/scores.json`). Per naam wordt per baan de beste ronde bewaard.
