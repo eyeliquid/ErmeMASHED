@@ -1,10 +1,10 @@
 # ErmeMASHED
 
-Top-down combat racer gebaseerd op het Mashed-gamedesigndocument. Speel samen in een lobby met tot 6 spelers; zijn jullie met minder dan 4, dan vullen bots aan tot 4 auto's. Alles draait in Docker:
+3D combat racer gebaseerd op het Mashed-gamedesigndocument. Speel samen in een lobby met tot 6 spelers; zijn jullie met minder dan 4, dan vullen bots aan tot 4 auto's. Alles draait in Docker:
 
 | Container     | Wat het doet                                                               |
 | ------------- | -------------------------------------------------------------------------- |
-| `frontend`    | nginx: serveert de game en stuurt `/api` en `/ws` door naar de backend      |
+| `frontend`    | nginx: serveert de game (3D via Three.js) en stuurt `/api` en `/ws` door    |
 | `backend`     | Node.js: lobby's via WebSocket (max 6 spelers per potje) en scorebord       |
 | `tunnel`      | Cloudflare-tunnel naar **https://ermemashed.terpstack.dev** (standaard)      |
 | `quicktunnel` | Alternatief: tijdelijke link op trycloudflare.com, zonder token             |
@@ -48,6 +48,10 @@ De browser van de host rekent het spel uit (ook de bots) en stuurt ~20 keer per 
 
 In Battle delen alle spelers één camera, net als op één scherm: wie uit beeld raakt, ligt eruit.
 
+### 3D
+
+De game wordt in 3D getekend met [Three.js](https://threejs.org) (r159). De camera hangt schuin achter de actie en draait mee met de baan, zoals in Mashed. De spelregels en de natuurkunde zijn 2D gebleven; alleen de weergave is 3D. Three.js wordt tijdens `docker compose build` uit npm gehaald en staat niet in de repository. Heeft een browser geen WebGL, dan valt de game terug op een 2D-weergave van bovenaf.
+
 ### Zonder token even testen
 
 Zet in `.env` `COMPOSE_PROFILES=quick` en start met `docker compose up -d --remove-orphans`. Je krijgt dan een tijdelijke link op trycloudflare.com. Die staat in het menu van de game en in `docker compose logs quicktunnel`.
@@ -74,7 +78,7 @@ docker-compose.yml
 frontend/
   Dockerfile        nginx:1.27-alpine
   nginx.conf        /api en /ws naar de backend, de rest is de game
-  public/index.html de game zelf (één bestand)
+  public/index.html de game zelf (één bestand); Three.js komt er bij het bouwen bij
 backend/
   Dockerfile        node:22-alpine
   server.js         WebSocket-rooms + REST-API

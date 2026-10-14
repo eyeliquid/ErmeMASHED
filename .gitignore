@@ -1,3 +1,4 @@
 .env
 backend/node_modules
 backend/data
+frontend/public/vendor
