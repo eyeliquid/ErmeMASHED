@@ -1,0 +1,61 @@
+# ErmeMASHED: frontend (nginx), backend (Node) en een Cloudflare-tunnel.
+# Start:  docker compose up -d --build
+# Welke tunnel er draait kies je in .env met COMPOSE_PROFILES (quick of named).
+name: ermemashed
+
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      DATA_DIR: /data
+      PUBLIC_URL: ${PUBLIC_URL:-https://ermemashed.terpstack.dev}
+      QUICKTUNNEL_METRICS: http://quicktunnel:2000/quicktunnel
+    volumes:
+      - scores:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+
+  # Tijdelijke link op trycloudflare.com, zonder Cloudflare-account.
+  quicktunnel:
+    image: cloudflare/cloudflared:2026.9.3
+    profiles: ["quick"]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --metrics 0.0.0.0:2000 --url http://frontend:80
+    depends_on:
+      frontend:
+        condition: service_healthy
+
+  # Vaste link https://ermemashed.terpstack.dev, via de tunnel uit het Cloudflare-dashboard.
+  # De public hostname ermemashed.terpstack.dev moet daar naar http://frontend:80 wijzen.
+  tunnel:
+    image: cloudflare/cloudflared:2026.9.3
+    profiles: ["named"]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --metrics 0.0.0.0:2000 run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:2000", "ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      frontend:
+        condition: service_healthy
+
+volumes:
+  scores:
