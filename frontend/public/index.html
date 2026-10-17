@@ -187,6 +187,31 @@ table.res i{display:inline-block;width:12px;height:12px;border-radius:3px;margin
 @media (max-width:480px){.slots{grid-template-columns:1fr}}
 #room.ro .seg button,#room.ro .track{cursor:default}
 #room.ro .seg button:not([aria-pressed="true"]),#room.ro .track:not([aria-pressed="true"]){opacity:.55}
+#standings{position:absolute;left:calc(24px + env(safe-area-inset-left,0px));top:50%;transform:translateY(-50%);z-index:15;width:min(380px,calc(100% - 32px));
+  pointer-events:none;opacity:0;transition:opacity .35s,transform .35s}
+#standings.st-on{opacity:1}
+#standings h3{margin:0 0 4px;font-family:var(--display);font-size:clamp(24px,5vw,34px);color:var(--accent);letter-spacing:.03em;text-shadow:2px 2px 0 #0b1724;line-height:1.05}
+#standings .sub{margin:0 0 12px;font-size:16px;font-weight:600;text-shadow:0 2px 4px #0b1724}
+#standings .sr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;background:rgba(11,23,36,.82);
+  border:2px solid transparent;border-radius:10px;padding:7px 10px;margin-bottom:6px}
+#standings .sr.sw{border-color:var(--accent);background:rgba(40,32,10,.88)}
+#standings .nm{display:flex;align-items:center;gap:8px;font-weight:700;font-size:17px;min-width:0}
+#standings .nm span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#standings .nm i{flex:none;width:14px;height:14px;border-radius:4px;background:var(--c);box-shadow:0 0 0 2px #0b1724}
+#standings .dl{grid-row:span 2;min-width:44px;text-align:center;font-family:var(--display);font-size:22px;border-radius:8px;padding:3px 6px;
+  background:#e8842a;color:#0b1724;transform:scale(0);transition:transform .3s cubic-bezier(.3,1.6,.5,1)}
+#standings .dl.neg{background:#5a1d18;color:var(--ink)}
+#standings .dl.zero{background:#2c3e52;color:var(--muted)}
+#standings.st-go .dl{transform:scale(1)}
+#standings .bar{display:flex;gap:3px}
+#standings .bar b{flex:1;height:10px;border-radius:3px;background:rgba(255,255,255,.12);transition:background .25s,transform .3s}
+#standings .bar b.f{background:var(--c)}
+#standings.st-go .bar b.gain{background:var(--c);animation:pop .45s cubic-bezier(.3,1.6,.5,1) both}
+#standings.st-go .bar b.loss{background:rgba(255,255,255,.12)}
+@keyframes pop{0%{transform:scaleY(.2);filter:brightness(2.2)}100%{transform:none;filter:none}}
+@media (max-width:640px){#standings{top:auto;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:none;left:16px}
+  #standings .sr{padding:5px 8px;margin-bottom:4px}#standings .nm{font-size:15px}#standings .sub{margin-bottom:8px}}
+@media (prefers-reduced-motion:reduce){#standings,#standings .dl,#standings .bar b{transition:none;animation:none!important}}
 #toast{position:absolute;left:50%;top:calc(16px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:20;max-width:calc(100% - 32px);
   background:#5a1d18;color:var(--ink);border:2px solid var(--red);border-radius:10px;padding:10px 14px;font-size:17px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .go-row{display:flex;gap:10px;flex-wrap:wrap}
@@ -235,6 +260,7 @@ table.res i{display:inline-block;width:12px;height:12px;border-radius:3px;margin
   </div>
 
   <div id="toast" role="status" hidden></div>
+  <div id="standings" aria-live="polite" hidden></div>
   <div id="banner"><div class="m"></div><div class="s"></div></div>
 
   <section id="startScreen" hidden>
@@ -489,7 +515,7 @@ addEventListener('resize',resize);resize();
 /* Camera-kader: een rechthoek in camera-assen (breedte dwars op de rijrichting, diepte langs de rijrichting).
    De camera draait mee met de baan. In Battle delen alle spelers dit kader (GDD: de camera houdt alle auto's in beeld);
    wie erbuiten raakt, ligt eruit. Elk scherm schaalt het kader zo groot mogelijk in beeld. */
-const frameSize=()=>G&&G.mode==='battle'&&!G.demo?[1000,660]:[780,520];
+const frameSize=()=>G&&G.mode==='battle'&&!G.demo?[1180,780]:[780,520];
 const VS=()=>{const [fw,fh]=frameSize();return Math.max(.3,Math.min(W/fw,H/fh));};
 const viewHalf=()=>{const [fw,fh]=frameSize();return[fw/2,fh/2];};
 function camAxes(){const y=G.camYaw||0;return{fx:Math.cos(y),fy:Math.sin(y),rx:-Math.sin(y),ry:Math.cos(y)};}
@@ -566,7 +592,7 @@ const cleanName=s=>String(s==null?'':s).replace(/[<>]/g,'').replace(/[\u0000-\u0
 let nick='';try{nick=cleanName(localStorage.getItem('ermeNick'));}catch(_){}
 
 /* opts: {net, host, players:[{id,name}], ai, pts}. Zonder opts: jij alleen (plus bots), lokaal. */
-function newGame(mode,trackIdx,demo,show,opts){opts=opts||{};
+function newGame(mode,trackIdx,demo,show,opts){opts=opts||{};hideStandings();
   const solo=mode==='free';
   const T=getTrack(trackIdx);
   G={mode,trackIdx,T,demo:!!demo,show:!!show,net:!!opts.net,host:!opts.net||!!opts.host,cars:[],bullets:[],missiles:[],mines:[],oils:[],shells:[],drums:[],flashes:[],strikes:[],parts:[],traffic:[],pickups:[],
@@ -768,7 +794,7 @@ function knockOut(c,destroyed){if(!c.alive)return;c.alive=false;G.outOrder.push(
   if(!destroyed)puff(c.x,c.y,c.color,10,120,7,.6);
   const lf0=toLocal(c.x,c.y);c.st={ox:clamp(lf0[0],-200,200),oy:clamp(lf0[1],-150,150),cd:1.2,jx:0,jy:0};
   pbanner(c,'Airstrike!',c.isPlayer&&touchUI?'Richt met je linker duim en druk op VUUR':'Richt met de pijltjes of de linker stick en vuur',2200);
-  const alive=G.cars.filter(x=>x.alive);if(alive.length<=1)endRound(alive[0]||null);}
+  const alive=G.cars.filter(x=>x.alive);if(alive.length<=1&&G.phase==='play')endRound(alive[0]||null);}
 function airstrikeTick(c,dt){const s=c.st;if(!s)return;s.cd-=dt;const [hw,hh]=viewHalf();
   if(c.ctrl!=='bot'){const a=c.isPlayer?aimInput():remoteAim(c);s.ox+=a.x*560*dt;s.oy-=a.y*560*dt;
     if(a.fire&&s.cd<=0&&!s.latch){launchStrike(c);s.cd=2;}s.latch=a.fire&&s.cd>1.9;}
@@ -779,15 +805,41 @@ function airstrikeTick(c,dt){const s=c.st;if(!s)return;s.cd-=dt;const [hw,hh]=vi
   s.ox=clamp(s.ox,-hw*.95,hw*.95);s.oy=clamp(s.oy,-hh*.95,hh*.95);}
 function launchStrike(c){const s=c.st,hh=viewHalf()[1],[x,y]=toWorld(s.ox+(Math.random()-.5)*120,hh+30),[tx,ty]=toWorld(s.ox,s.oy);
   G.strikes.push({x,y,a:Math.atan2(ty-y,tx-x),v:470,o:c,life:2.6,d0:Math.max(60,Math.hypot(tx-x,ty-y)),h:170,tx,ty});}
-function endRound(w){G.phase='roundEnd';G.phaseT=2.6;
-  const order=(w?[w]:[]).concat(G.outOrder.slice().reverse()),pts=PTS[G.cars.length];
+function endRound(w){G.phase='roundEnd';G.phaseT=4.4;
+  const order=(w?[w]:[]).concat(G.outOrder.slice().reverse()),pts=PTS[G.cars.length],before=G.cars.map(c=>c.score);
   order.forEach((c,i)=>{c.score=Math.max(0,c.score+(pts[i]||0));});
+  // cutscene: alles stil, camera naar de winnaar, punten erbij
+  G.bullets=[];G.missiles=[];G.shells=[];G.flashes=[];G.strikes=[];G.drums=[];G.flash=0;
+  for(const c of G.cars){c.vx=c.vy=0;c.st=null;c.burn=0;c.flameT=0;c.offT=0;}
+  G.cut={w:w?G.cars.indexOf(w):-1,b:before,s:G.cars.map(c=>c.score),r:G.round,g:G.target,t:0};
   G.lastWin=w?w.idx:(G.outOrder.length?G.outOrder[G.outOrder.length-1].idx:0);G.lastWinner=w;
   const top=Math.max(...G.cars.map(c=>c.score));const leaders=G.cars.filter(c=>c.score===top);
-  if(top>=G.target&&leaders.length===1){G.phaseT=2.2;G.endAfter=true;}
+  if(top>=G.target&&leaders.length===1){G.phaseT=4;G.endAfter=true;G.cut.end=1;}
   if(w&&w.ctrl==='bot'&&Math.random()<.7){w.tauntCd=0;taunt(w,true);}
-  humBanner(c=>w?[c===w?'Jij wint de ronde':w.name+' wint de ronde',c===w?'+2 punten':'+2 punten voor '+w.name,2200]:['Niemand over','Geen punten deze ronde',2000]);}
-function nextRound(){if(G.endAfter){gameOver();return;}
+  if(G.net&&G.host){const {t,...rs}=G.cut;mpSend({t:'ev',e:{rs}});}
+  showStandings(G.cut);}
+/* tussenstand na een ronde (paneel links, zoals in Mashed) */
+let standT=0;
+function showStandings(cut){const el=$('#standings');if(!el||!G||G.demo||!cut||!Array.isArray(cut.s))return;clearTimeout(standT);
+  const n=G.cars.length,wi=cut.w|0,wc=G.cars[wi],myIdx=G.cars.indexOf(G.me),tg=clamp(cut.g|0||G.target,1,30);
+  el.textContent='';el.className='';clearTimeout(bannerTimer);$('#banner').style.opacity=0;
+  const h=document.createElement('h3');h.textContent=wi>=0&&wc?(wi===myIdx?'Jij wint ronde '+cut.r:wc.name+' wint ronde '+cut.r):'Niemand over';
+  const sub=document.createElement('p');sub.className='sub';
+  const moved=cut.s.some((v,i)=>v!==cut.b[i]);
+  const li=cut.s.indexOf(Math.max(...cut.s)),lc=G.cars[li];
+  sub.textContent=cut.end&&lc?(li===myIdx?'Jij haalt':lc.name+' haalt')+' de '+tg+' punten · eindstand volgt':wi<0&&!moved?'Geen punten deze ronde':'Tussenstand · eerste tot '+tg+' punten';
+  el.append(h,sub);
+  for(let i=0;i<n;i++){const c=G.cars[i],b=clamp(+cut.b[i]||0,0,tg),a=clamp(+cut.s[i]||0,0,tg),d=(+cut.s[i]||0)-(+cut.b[i]||0);
+    const row=document.createElement('div');row.className='sr'+(i===wi?' sw':'');row.style.setProperty('--c',c.color);
+    const nm=document.createElement('div');nm.className='nm';const chip=document.createElement('i');const sp=document.createElement('span');
+    sp.textContent=c.name+(i===myIdx&&!G.show?' (jij)':'');nm.append(chip,sp);
+    const dl=document.createElement('div');dl.className='dl'+(d<0?' neg':d===0?' zero':'');dl.textContent=d>0?'+'+d:d<0?'\u2212'+(-d):'0';
+    const bar=document.createElement('div');bar.className='bar';
+    for(let k=0;k<tg;k++){const seg=document.createElement('b');if(k<Math.min(a,b))seg.className='f';else if(k<a){seg.className='gain';seg.style.animationDelay=((k-b)*.12)+'s';}else if(k<b)seg.className='f loss';bar.appendChild(seg);}
+    row.append(nm,dl,bar);el.appendChild(row);}
+  el.hidden=false;requestAnimationFrame(()=>{el.classList.add('st-on');standT=setTimeout(()=>el.classList.add('st-go'),700);});}
+function hideStandings(){const el=$('#standings');if(!el)return;clearTimeout(standT);el.className='';el.hidden=true;if(G)G.cut=null;}
+function nextRound(){hideStandings();if(G.endAfter){gameOver();return;}
   G.round++;G.outOrder=[];G.bullets=[];G.missiles=[];G.mines=[];G.oils=[];G.shells=[];G.drums=[];G.flashes=[];G.strikes=[];G.flash=0;
   const rest=shuffle(G.cars.filter(c=>c!==G.lastWinner));placeGrid(G.lastWin,G.lastWinner?[G.lastWinner,...rest]:rest);
   countdown(1.8);}
@@ -809,7 +861,7 @@ function update(dt){const T=G.T;G.time+=dt;
     if(G.phaseT<=0){G.phase='play';G.grace=1.2;if(!G.show)gbanner('GO!','',600);}
     camera(dt);return;}
   if(G.phase==='over'){camera(dt);return;}
-  if(G.phase==='roundEnd'){G.phaseT-=dt;if(G.phaseT<=0){nextRound();if(G.phase==='over')return;}}
+  if(G.phase==='roundEnd'){G.phaseT-=dt;if(G.cut)G.cut.t+=dt;if(G.phaseT>0){camera(dt);return;}nextRound();if(G.phase==='over')return;}
   if(G.mode!=='battle'&&!G.demo)G.raceT+=dt;
   if((G.mode==='free'||G.mode==='race')&&!G.demo&&!G.show)for(const c of G.cars){if(c.ctrl==='bot')continue;const lap=Math.floor(c.prog/T.N);
     if(lap<c.lapNo){c.lapNo=lap;c.lapStart=null;}
@@ -894,14 +946,15 @@ function update(dt){const T=G.T;G.time+=dt;
   camera(dt);
   // off-screen elimination: buiten de gedeelde camera = eruit
   if(G.mode==='battle'&&!G.demo&&G.phase==='play'&&G.grace<=0){const [hw,hh]=viewHalf();
-    for(const c of G.cars){if(!c.alive)continue;const lf=toLocal(c.x,c.y);if(Math.abs(lf[0])>hw+8||Math.abs(lf[1])>hh+8)knockOut(c,false);if(G.phase!=='play')break;}}
+    for(const c of G.cars){if(!c.alive)continue;const lf=toLocal(c.x,c.y),out=Math.abs(lf[0])>hw+30||Math.abs(lf[1])>hh+30;
+      c.offT=out?(c.offT||0)+dt:0;if(c.offT>.45){c.offT=0;knockOut(c,false);}if(G.phase!=='play')break;}}
   if(G.mode==='race'&&!G.demo&&G.phase==='play'&&((G.overAt&&G.raceT>=G.overAt)||G.finishOrder.length===G.cars.length||G.raceT>600))gameOver();
 }
 function flashFx(x,y){puff(x,y,'#ffffff',16,260,10,.5);G.parts.push({x,y,vx:0,vy:0,life:.4,max:.4,size:140,color:'ring'});}
 function camera(dt){let tx=G.camX,ty=G.camY,yi=null;const y0=G.camYaw||0;
   if(G.mode!=='battle'){const p=G.me;tx=p.x+p.vx*.35+Math.cos(y0)*70;ty=p.y+p.vy*.35+Math.sin(y0)*70;yi=p.idx;}
   else{const al=G.cars.filter(c=>c.alive);if(al.length){const L=al.reduce((a,b)=>a.prog>b.prog?a:b);let cx=0,cy=0;al.forEach(c=>{cx+=c.x;cy+=c.y;});cx/=al.length;cy/=al.length;
-    tx=lerp(L.x+L.vx*.3,cx,.35);ty=lerp(L.y+L.vy*.3,cy,.35);yi=L.idx;}}
+    tx=lerp(L.x+L.vx*.25,cx,.55);ty=lerp(L.y+L.vy*.25,cy,.55);yi=L.idx;}}
   const k=1-Math.exp(-5*dt);G.camX+=(tx-G.camX)*k;G.camY+=(ty-G.camY)*k;
   if(yi!=null){const yt=trackYaw(G.T,yi|0);G.camYaw=G.camYaw==null?yt:G.camYaw+angDiff(G.camYaw,yt)*(1-Math.exp(-1.8*dt));}}
 
@@ -1160,15 +1213,24 @@ function fitDist(fw,fh){const key=fw+'x'+fh;if(R3.fit[key])return R3.fit[key];co
     if(ok)hi=d;else lo=d;}
   return R3.fit[key]=hi;}
 
+const cutCar=()=>{if(!G||G.phase!=='roundEnd'||!G.cut||G.cut.w<0)return null;const c=G.cars[G.cut.w];return c&&c.alive?c:null;};
 /* --- elke frame: camera, dynamische objecten, deeltjes */
 function r3Frame(){const T=G.T,P=R3.P,G3=R3.g,t=performance.now()/1000;
   const tg=r3Track(T);for(const k in R3.tracks)R3.tracks[k].visible=R3.tracks[k]===tg;
   const sky=SKY[T.id];if(R3.skyFor!==T.id){R3.skyFor=T.id;R3.scene.background=new THREE.Color(sky);R3.scene.fog=new THREE.Fog(sky,1,2);}
   const [fw,fh]=frameSize(),dist=fitDist(fw,fh),yaw=G.camYaw||0,fx=Math.cos(yaw),fz=Math.sin(yaw),cam=R3.cam;
-  const fy=elevAt(T,nearestIdx(T,G.camX,G.camY))*.5;
+  const fy=elevAt(T,nearestIdx(T,G.camX,G.camY))*.5,wc=cutCar();
+  if(wc){// cutscene: camera zoomt in en draait langzaam rond de auto van de winnaar
+    const ct=G.cut.t,e=1-Math.pow(1-clamp(ct/1.1,0,1),3),R=lerp(280,135,e),ce=carElev(wc),th=wc.a+Math.PI*.62+ct*.32;
+    const px=wc.x+Math.cos(th)*R,pz=wc.y+Math.sin(th)*R;cam.position.set(px,ce+lerp(170,40,e),pz);
+    let dx=wc.x-px,dz=wc.y-pz;const dl=Math.hypot(dx,dz)||1;dx/=dl;dz/=dl;const off=W>640?R*.26:0;
+    cam.lookAt(wc.x+dz*off,ce+(W>640?6:-14),wc.y-dx*off);
+    R3.scene.fog.near=600;R3.scene.fog.far=2200;
+    R3.sun.position.set(wc.x-420,1100,wc.y-260);R3.sun.target.position.set(wc.x,0,wc.y);R3.sun.target.updateMatrixWorld();}
+  else{
   cam.position.set(G.camX-fx*dist*Math.cos(PITCH),fy+dist*Math.sin(PITCH),G.camY-fz*dist*Math.cos(PITCH));cam.lookAt(G.camX,fy,G.camY);
   R3.scene.fog.near=dist*1.25;R3.scene.fog.far=dist*3.2;
-  R3.sun.position.set(G.camX-420,1100,G.camY-260);R3.sun.target.position.set(G.camX,0,G.camY);R3.sun.target.updateMatrixWorld();
+  R3.sun.position.set(G.camX-420,1100,G.camY-260);R3.sun.target.position.set(G.camX,0,G.camY);R3.sun.target.updateMatrixWorld();}
   // auto's
   if(R3.carsFor!==G){for(const m of R3.cars)R3.dyn.remove(m);R3.cars=G.cars.map(r3Car);R3.carsFor=G;}
   G.cars.forEach((c,i)=>{const m=R3.cars[i];if(!active(c)){m.visible=false;return;}
@@ -1210,7 +1272,7 @@ function r3Frame(){const T=G.T,P=R3.P,G3=R3.g,t=performance.now()/1000;
 
 /* --- 2D-laag over de 3D-wereld: namen, taunts, jouw pijltje, minikaart, flitsen */
 function r3Overlay(){ctx.setTransform(DPR,0,0,DPR,0,0);ctx.clearRect(0,0,W,H);
-  ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';if(cutCar())return;
   for(const c of G.cars){if(!active(c))continue;const [x,y,ok]=project(c.x,carElev(c)+30,c.y);if(!ok)continue;
     if(c.taunt>0){ctx.font='700 15px "Barlow Condensed",sans-serif';const w=ctx.measureText(c.tauntTxt).width+14,by=y-18;
       ctx.fillStyle='#f3eee4';rr(ctx,x-w/2,by-11,w,22,8);ctx.fill();ctx.beginPath();ctx.moveTo(x-4,by+10);ctx.lineTo(x+4,by+10);ctx.lineTo(x,by+17);ctx.fill();ctx.fillStyle='#13263a';ctx.fillText(c.tauntTxt,x,by+1);}
@@ -1309,6 +1371,7 @@ function encodeSnap(){const ci=c=>G.cars.indexOf(c);
 function clientSnap(s){const now=performance.now();s.recv=now;MP.snaps.push(s);if(MP.snaps.length>40)MP.snaps.shift();
   if(!MP.hostT||Math.abs(MP.hostT-s.t)>.5)MP.hostT=s.t;
   const prevPhase=G.phase;G.phase=s.ph;G.round=s.rd;
+  if(prevPhase==='roundEnd'&&s.ph!=='roundEnd')hideStandings();
   if(prevPhase!=='countdown'&&s.ph==='countdown')MP.pred=null;
   G.cars.forEach((c,i)=>{const a=s.c[i];if(!a)return;const f=a[5];
     c.alive=!!(f&1);c.wreck=f&2?1:0;c.spinH=!!(f&4);c.burn=f&8?1:0;c.hit=f&16?.05:0;c.inv=f&32?1:0;c.finished=!!(f&64);c.flameT=f&128?1:0;c.wobble=f&512?.1:0;
@@ -1343,8 +1406,9 @@ function netEvent(e){if(!G)return;
   if(Array.isArray(e.bn))banner(String(e.bn[0]||''),String(e.bn[1]||''),Math.min(5000,+e.bn[2]||1500));
   if(typeof e.fl==='number')G.flash=Math.max(G.flash,Math.min(1.1,e.fl));
   if(typeof e.lap==='number')myLap(e.lap);
+  if(e.rs&&typeof e.rs==='object'&&Array.isArray(e.rs.s)&&Array.isArray(e.rs.b)){G.cut={...e.rs,t:0};showStandings(G.cut);}
   if(e.over)showOver(e.over);}
-function clientTick(dt){G.time+=dt;MP.hostT+=dt;
+function clientTick(dt){G.time+=dt;MP.hostT+=dt;if(G.cut)G.cut.t+=dt;
   for(const p of G.parts){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.92;p.vy*=.92;p.z=(p.z||5)+(p.vz||0)*dt;}G.parts=G.parts.filter(p=>p.life>0);
   G.flash=Math.max(0,G.flash-dt*.55);
   // auto's en camera interpoleren tussen twee snapshots
@@ -1369,7 +1433,7 @@ function clientTick(dt){G.time+=dt;MP.hostT+=dt;
     mpSend({t:'in',i:{s:r2(p.steer),t:r2(p.thr),b:p.brake?1:0,ba:r2(p.bAmt||0),f:p.fire?1:0,ax:r2(am.x),ay:r2(am.y),af:am.fire?1:0,tt:MP.tauntSeq}});}}
 /* eigen auto direct laten reageren (client-side prediction); bij botsingen, spins en sprongen volgt hij de host */
 function predictMe(dt){const me=G.me;if(!me||!me.isPlayer)return;
-  const free=me.alive&&!me.wreck&&!(me.air>0)&&!me.spinH&&(G.phase==='play'||G.phase==='roundEnd');
+  const free=me.alive&&!me.wreck&&!(me.air>0)&&!me.spinH&&G.phase==='play';
   if(!free||!MP.pred){MP.pred=free?{id:me.id,x:me.x,y:me.y,a:me.a,vx:me.vx,vy:me.vy,vF:0,idx:me.idx,prog:me.prog,edge:0,spin:0,wobble:0,skill:1,rjs:{},rds:{},onRoute:null}:null;return;}
   const P=MP.pred;P.wobble=me.wobble;drive(P,playerInput(),dt);polarFence(P,dt);
   me.x=P.x;me.y=P.y;me.a=P.a;me.vx=P.vx;me.vy=P.vy;me.idx=P.idx;me.onRoute=null;}
@@ -1383,7 +1447,7 @@ function gameOver(){if(G.show){G.phase='over';return;}G.phase='over';
   const over={rows,win:list[0].peer||'',wname:list[0].name,sub};
   if(G.net&&G.host)mpSend({t:'ev',e:{over}});
   showOver(over);}
-function showOver(o){if(!G||!o||!Array.isArray(o.rows))return;G.phase='over';$('#touch').hidden=true;$('#pause').hidden=true;
+function showOver(o){if(!G||!o||!Array.isArray(o.rows))return;hideStandings();G.phase='over';$('#touch').hidden=true;$('#pause').hidden=true;
   const myId=G.net?MP.me:'local',mine=o.win&&o.win===myId,myRow=o.rows.findIndex(r=>r[3]&&r[3]===myId);
   $('#endTitle').textContent=mine?'Jij wint!':String(o.wname)+' wint';
   $('#endSub').textContent=String(o.sub||'')+(myRow>=0?' · jij werd '+(myRow+1)+'e van '+o.rows.length:'');

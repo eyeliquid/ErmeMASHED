@@ -46,7 +46,9 @@ docker compose up -d --build
 
 De browser van de host rekent het spel uit (ook de bots) en stuurt ~20 keer per seconde de stand naar de anderen. Je eigen auto reageert direct; bij botsingen en treffers volgt hij de host. Gaat de host weg, dan wordt de volgende speler host en gaat iedereen terug naar de lobby. Houd als host het tabblad open: een browser zet de game op de achtergrond bijna stil.
 
-In Battle delen alle spelers één camera, net als op één scherm: wie uit beeld raakt, ligt eruit.
+In Battle delen alle spelers één camera, net als op één scherm: wie uit beeld raakt, ligt eruit. Het kader is ruim, de camera blijft dicht bij het midden van het veld en je mag heel even over de rand gaan voordat je eruit ligt.
+
+Is er nog één auto over, dan volgt een korte cutscene: de camera draait rond de auto van de winnaar, en links verschijnt de tussenstand waarin de nieuwe punten erbij komen (+2, +1, 0 of −1).
 
 ### 3D
 
