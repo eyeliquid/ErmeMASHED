@@ -29,9 +29,11 @@ Het domein `terpstack.dev` moet in je Cloudflare-account staan.
 
 ```bash
 cp .env.example .env
-# zet het token achter CLOUDFLARE_TUNNEL_TOKEN= in .env
+# open .env en vervang <plak-hier-je-cloudflare-tunnel-token> door je token
 docker compose up -d --build
 ```
+
+In `.env.example` staan alleen placeholders; je echte token zet je uitsluitend in `.env`. Dat bestand staat in `.gitignore` en komt dus niet op GitHub. Staat de placeholder er nog in, dan kan de `tunnel`-container niet verbinden en blijft hij opnieuw opstarten (`docker compose logs tunnel`).
 
 - Online: https://ermemashed.terpstack.dev
 - Lokaal: http://localhost:8080
